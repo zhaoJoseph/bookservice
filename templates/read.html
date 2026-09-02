@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <div hx-get="/api/v1/read/page/{{ book_id }}" hx-target="#app" hx-swap="outerHTML" hx-trigger="load"></div>
+
+    <div id="app"></div>
+
+    <script>
+        let socket = null;
+        let currentPage = 0;
+        const bookId = parseInt("{{ book_id }}", 10);
+
+        htmx.onLoad(function(content) {
+            const viewer = content.id === 'book-viewer' ? content : content.querySelector('#book-viewer');
+
+            if (viewer && !socket) {
+                console.log("attempting websocket connection, bookId =", bookId);
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/api/v1/read/ws?book_id=${bookId}`;
+                socket = new WebSocket(wsUrl);
+
+                socket.onopen = () => {
+                    console.log("WebSocket OPEN");
+                    socket.send(JSON.stringify({ page: currentPage }));
+                };
+
+                socket.onmessage = async (event) => {
+                    console.log("message received", event.data);
+                    const blob = event.data instanceof Blob ? event.data : new Blob([event.data], { type: 'image/jpeg' });
+                    const bitmap = await createImageBitmap(blob);
+                    const canvas = document.getElementById('page-canvas');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                    document.getElementById('page-num').textContent = currentPage + 1;
+                };
+
+                socket.onerror = (err) => console.error("WebSocket ERROR:", err);
+                socket.onclose = (event) => console.log("WebSocket CLOSED", event.code, event.reason);
+
+                document.getElementById('btn-prev').onclick = () => {
+                    if (currentPage > 0) {
+                        currentPage -= 1;
+                        socket.send(JSON.stringify({ page: currentPage }));
+                    }
+                };
+                document.getElementById('btn-next').onclick = () => {
+                    currentPage += 1;
+                    socket.send(JSON.stringify({ page: currentPage }));
+                };
+            }
+        });
+    </script>
+
+</body>
+</html>

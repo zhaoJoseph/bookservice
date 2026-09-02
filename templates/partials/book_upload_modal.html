@@ -1,0 +1,129 @@
+<div class="modal-header">
+  <h5 class="modal-title">Upload Book File</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form id="book-upload-form-{{ book.id }}" action="/api/v1/books/admin/{{ book.id }}/upload" method="post" enctype="multipart/form-data">
+  <input type="hidden" name="book_id" value="{{ book.id }}">
+  <div class="modal-body">
+    <p class="text-muted mb-3">Upload the book file for <strong>{{ book.title }}</strong>.</p>
+
+    <div class="mb-3">
+      <label for="book-upload-file-{{ book.id }}" class="form-label">Select PDF or EPUB</label>
+      <input id="book-upload-file-{{ book.id }}"
+             type="file"
+             class="form-control"
+             name="file"
+             accept=".pdf,.epub,application/pdf,application/epub+zip"
+             required>
+    </div>
+
+    <div class="mb-3">
+      <div class="progress d-none" id="book-upload-progress-{{ book.id }}" role="progressbar" aria-label="Uploading book file" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" id="book-upload-progress-bar-{{ book.id }}" style="width: 0%"></div>
+      </div>
+      <div id="book-upload-status-{{ book.id }}" class="small text-muted mt-2">Waiting for file...</div>
+    </div>
+
+    <div id="book-upload-error-{{ book.id }}" class="alert alert-danger d-none" role="alert"></div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+    <button type="submit" class="btn btn-primary">Upload Book</button>
+  </div>
+</form>
+
+<script>
+  (() => {
+    const form = document.getElementById('book-upload-form-{{ book.id }}');
+    if (!form) return;
+
+    const progressWrap = document.getElementById('book-upload-progress-{{ book.id }}');
+    const progressBar = document.getElementById('book-upload-progress-bar-{{ book.id }}');
+    const status = document.getElementById('book-upload-status-{{ book.id }}');
+    const errorBox = document.getElementById('book-upload-error-{{ book.id }}');
+    const fileInput = document.getElementById('book-upload-file-{{ book.id }}');
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        errorBox.textContent = 'Please choose a PDF or EPUB file.';
+        errorBox.classList.remove('d-none');
+        return;
+      }
+
+      const allowedExtensions = ['.pdf', '.epub'];
+      const name = file.name.toLowerCase();
+      const isAllowed = allowedExtensions.some(ext => name.endsWith(ext));
+      if (!isAllowed) {
+        errorBox.textContent = 'Only PDF and EPUB files are supported.';
+        errorBox.classList.remove('d-none');
+        return;
+      }
+
+      errorBox.textContent = '';
+      errorBox.classList.add('d-none');
+      progressWrap.classList.remove('d-none');
+      progressBar.style.width = '0%';
+      status.textContent = 'Uploading file...';
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', form.action, true);
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+      xhr.upload.onprogress = function (e) {
+        if (!e.lengthComputable) return;
+        const percent = Math.round((e.loaded / e.total) * 100);
+        progressBar.style.width = percent + '%';
+        status.textContent = 'Uploading... ' + percent + '%';
+      };
+
+      xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText || '{}');
+            status.textContent = response.file_type ? 'Upload complete: ' + response.file_type.toUpperCase() : 'Upload complete.';
+            const modalEl = document.getElementById('uploadBookModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+
+            if (typeof htmx !== 'undefined') {
+              htmx.ajax('GET', '/api/v1/books/admin', { target: '#book-list', swap: 'outerHTML' });
+            } else {
+              window.location.reload();
+            }
+          } catch (err) {
+            status.textContent = 'Upload complete.';
+            const modalEl = document.getElementById('uploadBookModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            window.location.reload();
+          }
+        } else {
+          let message = 'Upload failed. Please try again.';
+          try {
+            const response = JSON.parse(xhr.responseText || '{}');
+            if (response.detail) {
+              message = response.detail;
+            }
+          } catch (_) {}
+          errorBox.textContent = message;
+          errorBox.classList.remove('d-none');
+          status.textContent = 'Upload failed.';
+          progressWrap.classList.add('d-none');
+        }
+      };
+
+      xhr.onerror = function () {
+        errorBox.textContent = 'Network error while uploading the book.';
+        errorBox.classList.remove('d-none');
+        status.textContent = 'Upload failed.';
+        progressWrap.classList.add('d-none');
+      };
+
+      const formData = new FormData(form);
+      xhr.send(formData);
+    });
+  })();
+</script>

@@ -1,0 +1,89 @@
+<div id="loans-list" class="container-fluid">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr><th>Title</th><th>Author</th><th>Status</th><th>Due Date</th></tr>
+    </thead>
+    <tbody>
+      {% for loan in loans %}
+      <tr style="cursor: pointer;"
+          hx-get="/api/v1/loans/{{ loan.id }}/detail"
+          hx-target="#loan-detail"
+          hx-swap="innerHTML"
+          hx-trigger="click"
+          data-loan-id="{{ loan.id }}"
+          >
+        <td>{{ loan.book.title }}</td>
+        <td>{{ loan.book.author }}</td>
+        <td>
+          {% if loan.status == "active" %}
+          <span class="badge bg-primary">Active</span>
+          {% elif loan.status == "pending" %}
+          <span class="badge bg-warning text-dark">Pending</span>
+          {% elif loan.status == "returned" %}
+          <span class="badge bg-success">Returned</span>
+          {% elif loan.status == "rejected" %}
+          <span class="badge bg-danger">Rejected</span>
+          {% elif loan.status == "overdue" %}
+          <span class="badge bg-danger">Overdue</span>
+          {% else %}
+          <span class="badge bg-secondary">{{ loan.status|title }}</span>
+          {% endif %}
+        </td>
+        {% if loan.status != "pending" %}
+        <td>{{ loan.due_date.strftime("%b %d, %Y") }}</td>
+        {% else %}
+        <td></td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="text-center">No loans found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="card-footer row justify-content-center mt-3">
+    <nav aria-label="Page navigation">
+      <ul class="pagination">
+        {% if page > 1 %}
+        <li class="page-item">
+        <a class="page-link"
+            hx-get="/api/v1/loans?{{ base_params }}&page={{ page - 1 }}"
+            hx-push-url="/loans?{{ base_params }}&page={{ page - 1 }}"
+            hx-target="#loans-list"
+            hx-swap="outerHTML">
+            Previous
+        </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Previous</span></li>
+        {% endif %}
+
+        {% for page_num in page_range %}
+        <li class="page-item {% if page_num == page %}active{% endif %}">
+        <a class="page-link"
+            hx-get="/api/v1/loans?{{ base_params }}&page={{ page_num }}"
+            hx-push-url="/loans?{{ base_params }}&page={{ page_num }}"
+            hx-target="#loans-list"
+            hx-swap="outerHTML">
+            {{ page_num }}
+        </a>
+        </li>
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <li class="page-item">
+        <a class="page-link"
+            hx-get="/api/v1/loans?{{ base_params }}&page={{ page + 1 }}"
+            hx-push-url="/loans?{{ base_params }}&page={{ page + 1 }}"
+            hx-target="#loans-list"
+            hx-swap="outerHTML">
+            Next
+        </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Next</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+</div>

@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        body {
+            min-height: 100vh;
+        }
+
+        /* Chat message area: use a class so it works with dynamic ids (chat-board-<id>) */
+        .chat-board {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            overflow-x: hidden;
+            /* Leave room for header and input areas; adjust as needed */
+            max-height: calc(100vh - 160px);
+            padding: 0.75rem;
+        }
+
+        /* Chat list on the left: make it a column flex container and scrollable */
+        #chat-list-container {
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            max-height: calc(100vh - 80px);
+        }
+
+        /* Ensure the UL itself can scroll if needed */
+        #chat-list {
+            overflow-y: auto;
+        }
+
+        .assistant-message,
+        .user-message {
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        /* Make chat list items visibly interactive */
+        .chat-list-item {
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+        .chat-list-item:hover, .chat-list-item:focus {
+            background: rgba(0, 123, 255, 0.06);
+            outline: none;
+        }
+
+        .assistant-message {
+            color: #111827;
+        }
+
+        .assistant-message p,
+        .assistant-message ul,
+        .assistant-message ol,
+        .assistant-message pre,
+        .assistant-message blockquote,
+        .assistant-message h1,
+        .assistant-message h2,
+        .assistant-message h3 {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .assistant-message code {
+            background: #f3f4f6;
+            padding: 0.15rem 0.3rem;
+            border-radius: 0.25rem;
+        }
+
+        .assistant-message pre {
+            background: #111827;
+            color: #f9fafb;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+        }
+
+        .typing-cursor {
+            display: inline-block;
+            animation: blink 0.8s steps(2) infinite;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body data-is-new-chat="{{ is_new_chat|lower }}">
+    <script src="https://unpkg.com/htmx.org"></script>
+    <!-- HTMX WebSocket extension: enables hx-ext="ws" and ws-connect/ws-trigger attributes -->
+    <script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+    function renderMarkdownInto(el, markdownText) {
+        if (typeof marked === 'undefined') return;
+        el.innerHTML = marked.parse(markdownText || '');
+    }
+    </script>
+
+    <div class="d-flex flex-column" style="height: 100vh; overflow: hidden;">
+        <div class="flex-shrink-0" style="height: 3rem;"></div>
+        <div class="d-flex flex-grow-1 overflow-hidden">
+            <div class="col-md-3 border border-primary rounded-3 h-100 d-flex flex-column overflow-hidden">
+                <button id="new-chat-btn" class="btn btn-primary flex-shrink-0" type="button"
+                        style="width: 100%;" {% if is_new_chat %}disabled{% endif %}>
+                    <i class="bi bi-plus-lg me-1"></i>New Chat
+                </button>
+                <div id="chat-list-container" class="flex-grow-1 overflow-hidden">
+                    <ul id="chat-list" class="mb-0 p-2 list-unstyled">
+                        {% for c in chats %}
+                            <li class="mb-1">
+                                <button type="button" class="chat-list-item btn btn-link w-100 text-start" data-chat-id="{{ c.chat_id }}" onclick="openChat('{{ c.chat_id }}')" aria-label="Open chat {{ c.name }}">{{ c.name }}</button>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+            <div id="ws-container">
+                <div hx-ext="ws" ws-connect="/api/v1/chat/ws/notifications?chat_id={{ chat_id }}" ws-trigger="new_chat" ws-target="#chat-list" ws-swap="beforeend"></div>
+            </div>
+
+            <div class="border border-primary rounded-3 w-100 d-flex align-items-center flex-column overflow-hidden">
+                <div class="d-flex flex-grow-1 w-100 overflow-hidden">
+                    <div id="chat-board-{{ chat_id }}" class="chat-board col border border-primary rounded-3 w-100"></div>
+                </div>
+                <div class="d-flex flex-column flex-shrink-0" style="width: 100%;">
+                    <div class="d-flex align-items-center gap-2 px-3 py-2 border-top border-primary-subtle bg-light">
+                        <label for="loan-book-select" class="form-label mb-0 small text-muted">Loaned book</label>
+                        <select id="loan-book-select" class="form-select form-select-sm" name="book_id" style="max-width: 320px;">
+                            {% for loan in user_loans %}
+                                <option value="{{ loan.book_id }}">{{ loan.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="d-flex flex-row align-items-center" style="width: 100%;">
+                        <textarea class="form-control" id="chat-input" placeholder="Type a message..."></textarea>
+                        <button id="send-btn" class="btn btn-primary" style="height: 50px" type="button"
+                                hx-post="/api/v1/chat/send/{{ chat_id }}"
+                                hx-include="#chat-input, #loan-book-select"
+                                hx-target="#chat-board-{{ chat_id }}"
+                                hx-swap="beforeend"
+                                hx-vals="js:{'message': document.getElementById('chat-input').value, 'book_id': document.getElementById('loan-book-select').value, 'external_id': document.getElementById('loan-book-select').value, 'client_id': window.chatClientId}"
+                                hx-on::before-request="this.disabled = true; appendUserMessage(this)"
+                                hx-on::after-request="this.disabled = (document.getElementById('chat-input').value.trim() === ''); renderChatMarkdown(); handleAfterSend()"
+                                disabled>Send</button>
+                    </div>
+                </div>
+            </div>
+            <div id="current-chat-id" data-id="{{ chat_id }}" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        function typeAssistantResponse(rawMarkdown, anchorNode) {
+            const board = document.getElementById('chat-board-' + currentChatId);
+            if (!board) return;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'assistant-message';
+
+            const label = document.createElement('strong');
+            label.textContent = 'Assistant:';
+            bubble.appendChild(label);
+
+            const textNode = document.createElement('span');
+            textNode.className = 'typing-text';
+            bubble.appendChild(textNode);
+
+            const cursor = document.createElement('span');
+            cursor.className = 'typing-cursor';
+            cursor.textContent = '▌';
+            bubble.appendChild(cursor);
+
+            // Insert bubble at the position of the anchorNode if provided so
+            // assistant messages remain interleaved with user messages.
+            if (anchorNode && anchorNode.parentNode) {
+                anchorNode.parentNode.insertBefore(bubble, anchorNode);
+            } else {
+                board.appendChild(bubble);
+            }
+
+            let index = 0;
+            const typing = setInterval(() => {
+                textNode.textContent = rawMarkdown.slice(0, index);
+                index += 1;
+
+                if (index > rawMarkdown.length) {
+                    clearInterval(typing);
+                    bubble.removeChild(cursor);
+
+                    if (typeof marked !== 'undefined') {
+                        textNode.innerHTML = marked.parse(rawMarkdown);
+                    } else {
+                        textNode.textContent = rawMarkdown;
+                    }
+
+                    // Scroll the containing board to the bubble's bottom
+                    bubble.parentNode.scrollTop = bubble.parentNode.scrollHeight;
+                }
+            }, 18);
+        }
+
+        // Render assistant placeholders. If `animate` is false, render the
+        // assistant reply immediately (no typing animation) — used when
+        // restoring chat history. Default animate=true for live replies.
+        function renderChatMarkdown(animate = true) {
+            const board = document.getElementById('chat-board-' + currentChatId);
+            if (!board) return;
+
+            // Remove any assistant loader for this chat before rendering the actual reply
+            try { removeAssistantLoader(currentChatId); } catch (e) { /* ignore */ }
+
+            const assistantNodes = board.querySelectorAll('.assistant-message[data-md]');
+            assistantNodes.forEach((node) => {
+                if (node.dataset.rendered === 'true') return;
+                const rawMarkdown = node.getAttribute('data-md') || '';
+                node.dataset.rendered = 'true';
+                node.removeAttribute('data-md');
+
+                if (animate) {
+                    // Pass the original node as anchor so the typed bubble replaces it in-place
+                    typeAssistantResponse(rawMarkdown, node);
+                    // Remove the placeholder node after creating the bubble
+                    node.remove();
+                } else {
+                    // Render without animation and replace the placeholder
+                    const staticBubble = document.createElement('div');
+                    staticBubble.className = 'assistant-message';
+                    const label = document.createElement('strong');
+                    label.textContent = 'Assistant:';
+                    staticBubble.appendChild(label);
+                    const content = document.createElement('div');
+                    if (typeof marked !== 'undefined') {
+                        content.innerHTML = marked.parse(rawMarkdown);
+                    } else {
+                        content.textContent = rawMarkdown;
+                    }
+                    staticBubble.appendChild(content);
+                    if (node.parentNode) node.parentNode.insertBefore(staticBubble, node);
+                    node.remove();
+                }
+            });
+        }
+
+        // Track per-chat pending assistant loader elements so they can be
+        // removed when the assistant reply arrives.
+        window._pendingAssistantLoaders = window._pendingAssistantLoaders || {};
+
+        function removeAssistantLoader(chatId) {
+            if (!chatId) return;
+            const key = String(chatId);
+            const el = window._pendingAssistantLoaders[key];
+            if (el && el.parentNode) {
+                el.parentNode.removeChild(el);
+            }
+            delete window._pendingAssistantLoaders[key];
+        }
+
+        function appendUserMessage(btn) {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'user-message';
+            msgDiv.innerHTML = `<strong>You:</strong> ${message}`;
+
+            const board = document.getElementById('chat-board-' + currentChatId);
+            if (board) {
+                board.appendChild(msgDiv);
+                board.scrollTop = board.scrollHeight;
+            }
+
+            // Add a visible loading widget / assistant placeholder so the user
+            // knows the AI is processing. Only add one per chat.
+            try {
+                const key = String(currentChatId);
+                if (!window._pendingAssistantLoaders[key]) {
+                    const loader = document.createElement('div');
+                    loader.className = 'assistant-message assistant-loading';
+                    loader.setAttribute('data-loading-for', key);
+                    loader.innerHTML = `
+                        <strong>Assistant:</strong>
+                        <span class="ms-2 align-middle">
+                          <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                          <span class="visually-hidden">Loading...</span>
+                        </span>
+                        <span class="ms-2 text-muted">Thinking...</span>
+                    `;
+                    if (board) {
+                        board.appendChild(loader);
+                        board.scrollTop = board.scrollHeight;
+                    }
+                    window._pendingAssistantLoaders[key] = loader;
+                }
+            } catch (err) {
+                console.warn('failed to add assistant loader', err);
+            }
+
+            input.value = '';
+        }
+
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            const board = document.getElementById('chat-board-' + currentChatId);
+            if (board && evt.detail && evt.detail.target === board) {
+                // After HTMX swaps new assistant placeholders into the board, render them
+                // (default animate=true for live replies). Also remove loader if present.
+                renderChatMarkdown();
+            }
+        });
+    </script>
+
+    <script>
+        const sendBtn = document.getElementById('send-btn');
+        const chatInput = document.getElementById('chat-input');
+
+          chatInput.addEventListener('input', () => {
+            // Disable if empty (trim removes whitespace), enable if not
+            sendBtn.disabled = chatInput.value.trim() === '';
+        });
+    </script>
+
+    <script>
+        // Get the current chat ID from the server-rendered data attribute
+        // Use `let` because the client can create a new unsaved chat and change it.
+        let currentChatId = document.getElementById('current-chat-id').dataset.id;
+        const newChatBtn = document.getElementById('new-chat-btn');
+        const sendBtnEl = document.getElementById('send-btn');
+        const loanBookSelect = document.getElementById('loan-book-select');
+
+        // Utility: UUID v4 generator — use crypto.randomUUID when available
+        function generateUUID() {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                return crypto.randomUUID();
+            }
+            // fallback
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        // Stable per-tab client id used to identify the originator of HTTP requests
+        // and websocket connections. This allows the server to avoid re-sending
+        // OOB updates back to the same client (preventing duplicate messages).
+        window.chatClientId = generateUUID();
+
+        const ACTIVE_CHAT_KEY = 'active_chat_id';
+        const SAVED_CHAT_IDS_KEY = 'saved_chat_ids';
+        const PENDING_NEW_CHAT_KEY = 'pending_new_chat';
+        const BOOK_SELECTION_KEY_PREFIX = 'chat_book_selection_';
+
+        function getBookSelectionKey(chatId) {
+            return BOOK_SELECTION_KEY_PREFIX + String(chatId || '');
+        }
+
+        function getSelectedBookForChat(chatId) {
+            if (!chatId) return null;
+            try {
+                const raw = localStorage.getItem(getBookSelectionKey(chatId));
+                if (raw === null || raw === '') return null;
+                return String(raw);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function persistSelectedBookForChat(chatId, bookId) {
+            if (!chatId || !bookId) return;
+            try {
+                localStorage.setItem(getBookSelectionKey(chatId), String(bookId));
+            } catch (e) { /* ignore */ }
+        }
+
+        function applySelectedBookForChat(chatId) {
+            if (!loanBookSelect || !chatId) return;
+            const saved = getSelectedBookForChat(chatId);
+            const validValues = Array.from(loanBookSelect.options).map(opt => String(opt.value));
+            if (saved && validValues.includes(saved)) {
+                loanBookSelect.value = saved;
+                persistSelectedBookForChat(chatId, saved);
+            }
+        }
+
+        // Create a new unsaved chat in the UI. This does not persist the chat to the DB
+        // until the user sends a message (the server will then create the chat on first send).
+        newChatBtn.addEventListener('click', function() {
+            const newId = generateUUID();
+
+            // Update currentChatId and hidden field
+            currentChatId = newId;
+            const currentChatIdEl = document.getElementById('current-chat-id');
+            currentChatIdEl.dataset.id = newId;
+
+            // Update the chat board element id so HTMX targets remain correct
+            const oldBoard = document.querySelector('[id^="chat-board-"]');
+            if (oldBoard) {
+                // rename id to new one and clear its contents
+                oldBoard.id = 'chat-board-' + newId;
+                oldBoard.innerHTML = '';
+            } else {
+                // create new board if not present
+                const container = document.createElement('div');
+                container.id = 'chat-board-' + newId;
+                container.className = 'col border border-primary rounded-3 w-100';
+                const parent = document.querySelector('.border.border-primary.rounded-3.w-100.d-flex');
+                if (parent) parent.querySelector('.d-flex.flex-grow-1.w-100.overflow-hidden').appendChild(container);
+            }
+
+            // Update send button hx-post and hx-target to use the new unsaved chat id
+            if (sendBtnEl) {
+                sendBtnEl.setAttribute('hx-post', '/api/v1/chat/send/' + newId);
+                sendBtnEl.setAttribute('hx-target', '#chat-board-' + newId);
+                // enable the send button so the user can type immediately
+                sendBtnEl.disabled = document.getElementById('chat-input').value.trim() === '';
+            }
+
+            // Reconnect the HTMX websocket so this tab receives message notifications for the new chat
+            try { reconnectWebsocket(newId); } catch (e) { console.warn('ws reconnect failed', e); }
+
+            // Keep the selected loan context stable for this chat before the user sends the first message.
+            applySelectedBookForChat(newId);
+
+            // Optionally focus the input for quicker typing
+            const input = document.getElementById('chat-input');
+            if (input) input.focus();
+
+            // Fresh unsaved chat: explicitly mark this as pending. This is the source
+            // of truth for the button across reloads.
+            persistActiveChatId(newId);
+            try {
+                localStorage.setItem(PENDING_NEW_CHAT_KEY, 'true');
+            } catch (e) { /* ignore */ }
+            newChatBtn.disabled = true;
+        });
+
+        // Listen for the HTMX WebSocket message event.
+        // If the current view is a fresh unsaved new chat, do not treat the server's
+        // list update as a saved conversation yet; that would re-enable the button.
+        document.body.addEventListener('htmx:wsAfterMessage', function(evt) {
+            const pendingNewChat = localStorage.getItem(PENDING_NEW_CHAT_KEY) === 'true';
+            if (pendingNewChat) {
+                return;
+            }
+
+            const chatList = document.getElementById('chat-list');
+            if (!chatList) return;
+            const lastItem = chatList.lastElementChild;
+            if (!lastItem) return;
+
+            const newChatId = lastItem.getAttribute('data-chat-id');
+            if (newChatId === currentChatId) {
+                persistSavedChatId(newChatId);
+            }
+        });
+
+        // Reconnect the HTMX websocket by replacing the ws element inside #ws-container.
+        function reconnectWebsocket(chatId) {
+            const container = document.getElementById('ws-container');
+            if (!container) return;
+            // Remove any existing ws child — this should close the previous socket
+            while (container.firstChild) container.removeChild(container.firstChild);
+            const newDiv = document.createElement('div');
+            newDiv.setAttribute('hx-ext', 'ws');
+            // Include the per-tab client id so the server can identify the originator
+            newDiv.setAttribute('ws-connect', '/api/v1/chat/ws/notifications?chat_id=' + encodeURIComponent(chatId) + '&client_id=' + encodeURIComponent(window.chatClientId));
+            newDiv.setAttribute('ws-trigger', 'new_chat');
+            newDiv.setAttribute('ws-target', '#chat-list');
+            newDiv.setAttribute('ws-swap', 'beforeend');
+            container.appendChild(newDiv);
+            if (window.htmx && htmx.process) {
+                htmx.process(newDiv);
+            }
+        }
+        // Ensure the websocket is connected with our client id on initial load
+        // Replace the static ws element (if present) so the server sees the
+        // client_id and can avoid echoing updates back to this tab.
+        try { reconnectWebsocket(currentChatId); } catch (e) { console.warn('initial ws reconnect failed', e); }
+        // Render any server-provided assistant placeholders without animation on initial load
+        try { renderChatMarkdown(false); } catch (e) { /* ignore */ }
+
+        // Restore the most recent active chat from localStorage, while still using the
+        // saved_chat_ids list as the source of truth for whether the "New Chat" button
+        // should be enabled. This ensures a fresh new chat remains disabled after reload.
+        (async function restoreSavedChatState() {
+            try {
+                const activeId = localStorage.getItem(ACTIVE_CHAT_KEY);
+                const savedIds = getSavedChatIds();
+
+                // Only ever try to load history for a chat the server actually
+                // persisted. An "active" id that isn't in saved_chat_ids means
+                // the user opened a fresh chat and reloaded before sending a
+                // first message — that chat doesn't exist server-side, and
+                // fetching it would 404. Discard the stale reference instead
+                // of trying to restore it.
+                let restoreId = null;
+                if (activeId && savedIds.includes(String(activeId))) {
+                    restoreId = activeId;
+                } else if (activeId) {
+                    clearActiveChatId();
+                } else if (savedIds.length > 0) {
+                    restoreId = savedIds[savedIds.length - 1];
+                }
+
+                if (restoreId) {
+                    currentChatId = restoreId;
+                    document.getElementById('current-chat-id').dataset.id = restoreId;
+                    applySelectedBookForChat(restoreId);
+
+                    const board = document.querySelector('[id^="chat-board-"]');
+                    if (board) {
+                        board.id = 'chat-board-' + restoreId;
+                    }
+
+                    if (sendBtnEl) {
+                        sendBtnEl.setAttribute('hx-post', '/api/v1/chat/send/' + restoreId);
+                        sendBtnEl.setAttribute('hx-target', '#chat-board-' + restoreId);
+                    }
+
+                    const result = await loadChatHistory(restoreId, { animate: false });
+                    if (!result.ok && result.status === 404) {
+                        // saved_chat_ids was out of sync with the server (chat
+                        // deleted, or never really created). Drop it and fall
+                        // back to unsaved-chat state.
+                        forgetInvalidChatId(restoreId);
+                    }
+                }
+
+                syncNewChatButtonState();
+            } catch (e) {
+                console.warn('failed to restore saved chat state', e);
+            }
+        })();
+
+        function getSavedChatIds() {
+            try {
+                const raw = localStorage.getItem(SAVED_CHAT_IDS_KEY);
+                if (!raw) return [];
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) return [];
+                return parsed.filter(Boolean).map(String);
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function persistSavedChatId(chatId) {
+            if (!chatId) return;
+            const ids = getSavedChatIds();
+            const normalized = String(chatId);
+            if (!ids.includes(normalized)) {
+                ids.push(normalized);
+                try {
+                    localStorage.setItem(SAVED_CHAT_IDS_KEY, JSON.stringify(ids));
+                } catch (e) { /* ignore */ }
+            }
+        }
+
+        // Source of truth for the New Chat button is simply: "is the chat currently
+        // shown on screen (currentChatId) present in saved_chat_ids?" Nothing else
+        // should factor into this decision — not whether an active-chat key merely
+        // exists in localStorage, since that key can be absent for reasons unrelated
+        // to whether the on-screen chat has been persisted.
+        function syncNewChatButtonState() {
+            if (!newChatBtn) return;
+            try {
+                const savedIds = getSavedChatIds();
+                const isSaved = savedIds.includes(String(currentChatId));
+                newChatBtn.disabled = !isSaved;
+            } catch (e) {
+                newChatBtn.disabled = false;
+            }
+        }
+
+        // Persist the active chat id so page reloads retain the current chat state
+        // even when it has not yet been saved to the backend.
+        function persistActiveChatId(chatId) {
+            if (!chatId) return;
+            try {
+                localStorage.setItem(ACTIVE_CHAT_KEY, String(chatId));
+            } catch (e) { /* ignore */ }
+        }
+
+        function clearActiveChatId() {
+            try {
+                localStorage.removeItem(ACTIVE_CHAT_KEY);
+            } catch (e) { /* ignore */ }
+        }
+
+        // When sending completes, persist the saved chat id and update the button state.
+        function handleAfterSend() {
+            persistSavedChatId(currentChatId);
+            clearActiveChatId();
+            syncNewChatButtonState();
+            // Also remove any assistant loader for this chat
+            try { removeAssistantLoader(currentChatId); } catch (e) { /* ignore */ }
+        }
+
+        async function loadChatHistory(chatId, { animate = false } = {}) {
+            if (!chatId) return { ok: false, status: null };
+            try {
+                const resp = await fetch('/api/v1/chat/messages/' + chatId, { credentials: 'same-origin' });
+                if (!resp.ok) {
+                    console.error('Failed to load messages for chat', chatId, resp.status);
+                    return { ok: false, status: resp.status };
+                }
+
+                const html = await resp.text();
+                const target = document.getElementById('chat-board-' + chatId);
+                if (target) {
+                    target.innerHTML = html;
+                    renderChatMarkdown(animate);
+                }
+                return { ok: true, status: resp.status };
+            } catch (err) {
+                console.error('Error loading chat messages', err);
+                return { ok: false, status: null };
+            }
+        }
+
+        // If a chat id turns out not to exist server-side (404), it has no
+        // business being treated as "saved" or "active" anymore. Prune it so
+        // future reloads don't repeat the failed fetch, and fall back to
+        // unsaved-chat state so the New Chat button is correctly disabled.
+        function forgetInvalidChatId(chatId) {
+            if (!chatId) return;
+            const normalized = String(chatId);
+            const ids = getSavedChatIds().filter((id) => id !== normalized);
+            try {
+                localStorage.setItem(SAVED_CHAT_IDS_KEY, JSON.stringify(ids));
+            } catch (e) { /* ignore */ }
+            const activeId = localStorage.getItem(ACTIVE_CHAT_KEY);
+            if (activeId === normalized) {
+                clearActiveChatId();
+            }
+        }
+
+        // Function to open a chat by id (used by click handler and inline onclick)
+        async function openChat(clickedId) {
+            if (!clickedId) return;
+            currentChatId = clickedId;
+            persistSavedChatId(clickedId);
+            if (getSavedChatIds().includes(String(clickedId))) {
+                clearActiveChatId();
+            } else {
+                persistActiveChatId(clickedId);
+            }
+            syncNewChatButtonState();
+            document.getElementById('current-chat-id').dataset.id = clickedId;
+            applySelectedBookForChat(clickedId);
+
+            // Update chat board element id
+            const board = document.querySelector('[id^="chat-board-"]');
+            if (board) {
+                board.id = 'chat-board-' + clickedId;
+                board.innerHTML = '';
+            }
+
+            // Update send button to post to this chat
+            if (sendBtnEl) {
+                sendBtnEl.setAttribute('hx-post', '/api/v1/chat/send/' + clickedId);
+                sendBtnEl.setAttribute('hx-target', '#chat-board-' + clickedId);
+                sendBtnEl.disabled = document.getElementById('chat-input').value.trim() === '';
+            }
+
+            await loadChatHistory(clickedId, { animate: false });
+
+            // Reconnect websocket to receive live updates for the selected chat
+            try { reconnectWebsocket(clickedId); } catch (e) { console.warn('ws reconnect failed', e); }
+
+            // Optionally, focus the input
+            const input = document.getElementById('chat-input');
+            if (input) input.focus();
+        }
+
+        // Helper: find a chat id from an element by checking data attributes on
+        // the element and its ancestors. This makes the click handler resilient
+        // to different DOM structures (li, button, plain text, etc.).
+        function findChatIdFromElement(el) {
+            if (!el) return null;
+            // direct dataset
+            if (el.dataset && el.dataset.chatId) return el.dataset.chatId;
+            // attribute
+            if (el.getAttribute && el.getAttribute('data-chat-id')) return el.getAttribute('data-chat-id');
+            // walk up to parent that might have it
+            const ancestor = el.closest && el.closest('[data-chat-id]');
+            if (ancestor && ancestor.getAttribute) return ancestor.getAttribute('data-chat-id');
+            return null;
+        }
+
+        // Switching books is a context change for the active conversation, not a new conversation.
+        // Keep the current chat id stable and persist the chosen loan context for this chat.
+        if (loanBookSelect) {
+            loanBookSelect.addEventListener('change', function() {
+                if (!currentChatId) return;
+                persistSelectedBookForChat(currentChatId, loanBookSelect.value);
+                persistActiveChatId(currentChatId);
+                syncNewChatButtonState();
+            });
+        }
+
+        // When clicking an existing chat in the list, load its messages and
+        // switch the UI to that chat without a full page reload.
+        document.getElementById('chat-list').addEventListener('click', function(e) {
+            const clickedId = findChatIdFromElement(e.target);
+            if (!clickedId) return;
+            openChat(clickedId);
+        });
+
+        // Keyboard support: Enter/Space on focused list items
+        document.getElementById('chat-list').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                const clickedId = findChatIdFromElement(e.target);
+                if (clickedId) {
+                    e.preventDefault();
+                    openChat(clickedId);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

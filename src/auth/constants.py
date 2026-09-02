@@ -1,0 +1,8 @@
+EMAIL_EXISTS_MESSAGE = "Email already exists"
+INCORECT_LOGIN_MESSAGE = "Incorrect email or password"
+USER_SUSPENDED_MESSAGE = "User is suspended"
+USER_NOT_FOUND_MESSAGE = "User not found"
+INVALID_TOKEN_MESSAGE = "Invalid token"
+
+VERIFICATION_TOKEN_LENGTH = 32
+VERIFICATION_TOKEN_EXPIRY_HOURS = 24

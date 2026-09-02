@@ -1,0 +1,8 @@
+# AWS SES Constants
+SES_DEFAULT_TIMEOUT = 30  # seconds
+SES_MAX_RETRIES = 3
+SES_CHAR_ENCODING = "UTF-8"
+
+# Error Codes
+SES_ERROR_CODE_THROTTLING = "Throttling"
+SES_ERROR_CODE_INVALID_ADDRESS = "MessageRejected"   

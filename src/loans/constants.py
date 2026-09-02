@@ -1,0 +1,5 @@
+LOAN_NOT_FOUND = "Loan not found"
+VALIDATION_ERROR = "Validation error"
+LOAN_ALREADY_EXISTS = "Loan already exists"
+WRONG_USER = "You are not authorized to perform this action"
+LOAN_NOT_ACTIVE = "Loan is not active"

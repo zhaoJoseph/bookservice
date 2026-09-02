@@ -1,0 +1,12 @@
+<form hx-put="/api/v1/loans/admin/{{ loan.id }}"
+      hx-target="#loan-detail"
+      hx-swap="innerHTML">
+  <div class="mb-3">
+    <label class="form-label">Rejection Reason</label>
+    <textarea class="form-control" name="rejection_reason" required></textarea>
+  </div>
+  <div class="alert alert-danger mt-3">
+    <strong>Warning!</strong> This action cannot be undone.
+  </div>
+  <button type="submit" class="btn btn-danger">Submit</button>
+</form>

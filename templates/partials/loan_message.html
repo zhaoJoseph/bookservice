@@ -1,0 +1,9 @@
+<div class="card mt-3">
+    <div class="card-body">
+       {% if loan %}
+        <p class="text-success">Loan request sent successfully.</p>
+        {% else %}
+        <p class="text-danger">Loan request failed or already exists.</p>
+        {% endif %}
+    </div>
+</div>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalog</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body>
+    <script src="https://unpkg.com/htmx.org"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <div class="modal fade" id="loan-detail" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="loan-detail-content">
+        <div class="modal-body text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+        <div class="col-md-10">
+            <h1 class="text-center mb-4">Catalog</h1>
+            <div class="d-flex align-items-center mb-5">
+                <select 
+                    name="genre" 
+                    class="form-select me-3"
+                    style="max-width: 200px;"
+                >
+                    <option value="">All Genres</option>
+                    <option value="fiction">Fiction</option>
+                    <option value="non-fiction">Non-Fiction</option>
+                    <option value="mystery">Mystery</option>
+                    <option value="science">Science</option>
+                </select>
+
+                <div class="input-group" style="max-width: 350px; flex: 0 0 auto;">
+                    <input type="text" name="q" placeholder="Search books..."
+                        hx-get="/api/v1/books" hx-trigger="keyup changed delay:500ms"
+                        hx-target="#book-list" class="form-control" hx-include="#genre-select, [name='available']">
+                    <button class="btn btn-primary" type="button">Search</button>
+                </div>
+
+                <div class="d-flex justify-content-end" style="flex: 1;">
+                    <div class="form-check d-flex align-items-center">
+                        <input class="form-check-input" type="checkbox" name="available" id="onlyAvailable">
+                        <label class="form-check-label ms-1 text-nowrap" for="onlyAvailable">
+                            Show only available
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        </div>
+    
+
+        <!-- Response -->
+       <div id="book-list"
+       hx-get="/api/v1/books"
+       hx-trigger="load"
+       hx-swap="innerHTML"
+       >
+        {% include "partials/book_list.html" %}
+        </div>
+</body>
+
+</html>

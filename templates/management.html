@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loans</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body>
+    <script src="https://unpkg.com/htmx.org"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <div class="modal fade" id="searchLoanAdminModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content" id="searchLoanAdminModalContent">
+            <!-- htmx swaps this in -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+        <div class="col-md-10">
+            <h1 class="text-center mb-4">Loans</h1>
+            <div class="d-flex align-items-center mb-5">
+                <button class="btn btn-primary me-3 text-nowrap" type="button"
+                    hx-get="/api/v1/loans/admin/search"
+                    hx-target="#searchLoanAdminModalContent"
+                    hx-swap="innerHTML"
+                    data-bs-toggle="modal"
+                    data-bs-target="#searchLoanAdminModal">
+                    <i class="bi bi-plus-lg me-1"></i>Search Loans
+                </button>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editLoanModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="editLoanModalContent">
+        <!-- htmx swaps this in -->
+        <div class="modal-body text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+        <!-- Response -->
+       <div 
+        id="loans-list-admin"
+        hx-get="/api/v1/loans/admin"
+        hx-swap="outerHTML"
+        hx-trigger="load"
+       >
+        <div class="d-flex justify-content-center align-items-center" style="min-height: 300px;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        </div>
+</body>
+
+</html>

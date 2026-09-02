@@ -1,0 +1,50 @@
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">{{ loan.borrower.email }}</h5>
+
+    <p class="card-title">Id: {{ loan.borrower.id }}</p>
+    <p class="card-title">Title: {{ loan.book.title }}</p>
+    <p class="card-subtitle mb-2 text-muted">Author: {{ loan.book.author }}</p>
+
+    <img src="{{ loan.book.cover_image_path }}" class="card-img-top" alt="{{ loan.book.title }}" style="height: 300px; object-fit: cover;">
+    <p class="mb-1"><strong>Status:</strong> {{ loan.status|title }}</p>
+    <p class="mb-1"><strong>ISBN:</strong> {{ loan.book.isbn }}</p>
+    <p class="mb-1"><strong>Requested:</strong> {{ loan.requested_at.strftime("%b %d, %Y") }}</p>
+    {% if loan.approved_at %}
+    <p class="mb-1"><strong>Approved:</strong> {{ loan.approved_at.strftime("%b %d, %Y") }}</p>
+    {% endif %}
+    {% if loan.due_date %}
+    <p class="mb-1"><strong>Due:</strong> {{ loan.due_date.strftime("%b %d, %Y") }}</p>
+    {% endif %}
+    {% if loan.returned_at %}
+    <p class="mb-1"><strong>Returned:</strong> {{ loan.returned_at.strftime("%b %d, %Y") }}</p>
+    {% endif %}
+    {% if loan.rejection_reason %}
+    <div class="alert alert-danger mt-3">
+      <strong>Rejected:</strong> {{ loan.rejection_reason }}
+    </div>
+    {% endif %}
+
+    {% if loan.status == "pending" %}
+    <button type="button" class="btn btn-primary"
+            hx-get="/api/v1/loans/admin/{{ loan.id }}/approve-form"
+            hx-target="#submit-form"
+            hx-swap="innerHTML">
+      Approve
+    </button>
+    {% endif %}
+
+    {% if loan.status == "active" or loan.status == "pending" %}
+    <button type="button" class="btn btn-danger"
+            hx-get="/api/v1/loans/admin/{{ loan.id }}/revoke-form"
+            hx-target="#submit-form"
+            hx-swap="innerHTML">
+      Revoke
+    </button>
+    {% endif %}
+
+    <div id="submit-form" class="mt-3"></div>
+
+    <button type="button" class="btn btn-secondary mt-3" data-bs-dismiss="modal">Close</button>
+  </div>
+</div>

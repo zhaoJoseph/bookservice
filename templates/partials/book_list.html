@@ -1,0 +1,40 @@
+<!-- templates/partials/book_list.html -->
+<div class="container-fluid">
+  <div class="row row-cols-1 row-cols-md-3 g-4">
+    {% for book in books %}
+    <div class="col">
+      <div class="card h-100">
+        <img src="{{ book.cover_image_path }}" class="card-img-top" alt="{{ book.title }}" style="height: 300px; object-fit: cover;">
+        <div class="card-body">
+          <h5 class="card-title">{{ book.title }}</h5>
+          <p class="card-text text-muted">by {{ book.author }}</p>
+          <p class="card-text small">{{ book.description[:100] }}...</p>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="badge bg-primary">{{ book.genre }}</span>
+            <span class="badge bg-success">{{ book.available_copies }} / {{ book.total_copies }} Available</span>
+          </div>
+        </div>
+        <div class="card-footer bg-transparent border-top-0">
+          <small class="text-muted">ISBN: {{ book.isbn }}</small>
+        </div>
+        {% if book.loan_id %}
+        <td><span class="badge bg-info">Requested</span></td>
+        {% else %}
+        <button hx-post="/api/v1/loans/request/{{ book.id }}"
+                hx-target="#loan-detail-content"
+                hx-swap="innerHTML"
+                data-bs-toggle="modal"
+                data-bs-target="#loan-detail">
+            Request Loan
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="text-center" style="min-height: 200px; width: 100%;">
+      <h4>No books found.</h4>
+      <p class="text-muted">Try adjusting your search terms.</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>

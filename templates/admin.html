@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalog</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body>
+    <script src="https://unpkg.com/htmx.org"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="modal fade" id="editBookModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="editBookModalContent">
+        <!-- htmx swaps this in -->
+        <div class="modal-body text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="modal fade" id="addBookModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="addBookModalContent">
+        <!-- htmx swaps this in -->
+        <div class="modal-body text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="modal fade" id="deleteBookModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="deleteBookModalContent">
+        <!-- htmx swaps this in -->
+        <div class="modal-body text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="modal fade" id="uploadBookModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="uploadBookModalContent">
+        <!-- htmx swaps this in -->
+        <div class="modal-body text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+        <div class="col-md-10">
+            <h1 class="text-center mb-4">Catalog</h1>
+            <div class="d-flex align-items-center mb-5">
+                <button class="btn btn-primary me-3 text-nowrap" type="button"
+                    hx-get="/api/v1/books/admin/add"
+                    hx-target="#addBookModalContent"
+                    hx-swap="innerHTML"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addBookModal">
+                    <i class="bi bi-plus-lg me-1"></i>Add Book
+                </button>
+                <select
+                    name="genre"
+                    id="genre-select"
+                    class="form-select me-3"
+                    style="max-width: 200px;"
+                    hx-get="/api/v1/books/admin"
+                    hx-target="#book-list"
+                    hx-swap="outerHTML"
+                    hx-include="[name='q'], [name='available']">
+                    <option value="">All Genres</option>
+                    <option value="fiction">Fiction</option>
+                    <option value="non-fiction">Non-Fiction</option>
+                    <option value="mystery">Mystery</option>
+                    <option value="science">Science</option>
+                </select>
+
+                <div class="input-group" style="max-width: 350px; flex: 0 0 auto;">
+                    <input type="text" name="q" id="search-input" placeholder="Search books..."
+                        hx-get="/api/v1/books/admin"
+                        hx-trigger="keyup changed delay:500ms, search"
+                        hx-target="#book-list"
+                        hx-swap="outerHTML"
+                        class="form-control"
+                        hx-include="#genre-select, [name='available']">
+                    <button class="btn btn-primary" type="button"
+                        hx-get="/api/v1/books/admin"
+                        hx-target="#book-list"
+                        hx-swap="outerHTML"
+                        hx-include="#search-input, #genre-select, [name='available']">
+                        Search
+                    </button>
+                </div>
+
+                <div class="d-flex justify-content-end ms-3" style="flex: 1;">
+                    <div class="form-check d-flex align-items-center">
+                        <input class="form-check-input" type="checkbox" name="available" id="onlyAvailable"
+                            hx-get="/api/v1/books/admin"
+                            hx-target="#book-list"
+                            hx-swap="outerHTML"
+                            hx-include="[name='q'], #genre-select">
+                        <label class="form-check-label ms-1 text-nowrap" for="onlyAvailable">
+                            Show only available
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        </div>
+
+        <!-- Response -->
+       <div id="book-list"
+       hx-get="/api/v1/books/admin"
+       hx-swap="outerHTML"
+       hx-trigger="load"
+       >
+        <div class="d-flex justify-content-center align-items-center" style="min-height: 300px;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        </div>
+</body>
+
+</html>

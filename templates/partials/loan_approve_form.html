@@ -1,0 +1,9 @@
+<form hx-put="/api/v1/loans/admin/{{ loan.id }}"
+      hx-target="#loan-detail"
+      hx-swap="innerHTML">
+  <div class="mb-3">
+    <label class="form-label">Due Date</label>
+    <input type="datetime-local" class="form-control" name="due_date" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Submit</button>
+</form>
