@@ -25,15 +25,19 @@ class LoanService:
         self.db = db
 
     async def get_by_id(self, loan_id: int, user: User) -> Loan:
-        result = await self.db.execute(select(Loan).where(Loan.id == loan_id))
+        stmt = (
+            select(Loan)
+            .where(Loan.id == loan_id)
+            .options(selectinload(Loan.book), selectinload(Loan.borrower))
+        )
+        result = await self.db.execute(stmt)
         loan = result.scalars().first()
         if not loan:
             raise LoanNotFound()
-        
+
         if user.role == Role.admin:
             return loan
-        
-        # borrower_id is UUID — compare directly
+
         if loan.borrower_id != user.id:
             raise WrongUser()
 
@@ -91,16 +95,14 @@ class LoanService:
                 stmt = stmt.where(or_(*[User.email.ilike(f"%{e}%") for e in emails])) # type: ignore[attr-defined]
 
         raw_ids = parse_csv_param(query.id)
-        parsed_ids = []
         if raw_ids:
+            parsed_ids = []
             for id in raw_ids:
                 try:
-                    parsed_uuid = uuid.UUID(id)
-                    parsed_ids.append(parsed_uuid)
+                    parsed_ids.append(int(id))
                 except ValueError:
                     pass
-            if parsed_ids:
-                stmt = stmt.where(Loan.borrower_id.in_(parsed_ids))
+            stmt = stmt.where(Loan.id.in_(parsed_ids))
 
         statuses = parse_csv_param(query.status)
         if statuses:

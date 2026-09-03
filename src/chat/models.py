@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import ForeignKey
 import uuid
 from sqlalchemy import Uuid
+from fastapi_users_db_sqlalchemy.generics import GUID
 
 from ..models import User
 
@@ -17,7 +18,7 @@ class Chat(Base):
     createdAt : Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updatedAt : Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"))
+    user_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("users.id"))
 
     # relationship to ChatMessage; back_populates must match ChatMessage.chat
     messages = relationship("ChatMessage", back_populates="chat", cascade="all, delete-orphan")
@@ -27,7 +28,7 @@ class ChatMessage(Base):
 
     id : Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, index=True)
     chat_id : Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("chats.id"))
-    user_id : Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"))
+    user_id : Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("users.id"))
     content : Mapped[str] = mapped_column(String(1000000), nullable=False)
     reply : Mapped[str] = mapped_column(String(1000000), nullable=False)
     createdAt : Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

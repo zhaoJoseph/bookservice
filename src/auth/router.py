@@ -23,16 +23,17 @@ async def register(
     user_manager: Annotated[UserManager, Depends(get_user_manager)]
 ):
     try:
-        user_create = UserCreate(**form_data.model_dump())
+        user_data = form_data.model_dump()
+        user_data["genres"] = genres_to_string(form_data.genres)
+        user_create = UserCreate(**user_data)
     except Exception as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=422, detail=str(e))
-    
+
     try:
         user_create.is_active = False
         user_create.is_verified = False
         user_create.status = Status.inactive
-        user_create.genres = genres_to_string(form_data.genres)
         user = await user_manager.create(user_create, safe=True)
     except UserAlreadyExists:
         raise EmailExists()

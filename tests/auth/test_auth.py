@@ -110,7 +110,7 @@ async def test_register_route_invalid_password(client):
 async def test_register_route(client):
     response = client.post("/api/v1/auth/register", data={"name": "testuser", "email": "test@test.com",
                                                           "password": "Qwertyuiop123@", 
-                                                          "confirm_password": "Qwertyuiop123@", "genres": [1,2,3,4,5]})
+                                                          "confirm_password": "Qwertyuiop123@", "genres": "[1,2,3,4,5]"})
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == "testuser"

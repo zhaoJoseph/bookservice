@@ -2,7 +2,8 @@ from ..database import Base
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CheckConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
-from sqlalchemy import Uuid, String
+from sqlalchemy import String
+from fastapi_users_db_sqlalchemy.generics import GUID
 import uuid
 
 from ..books.models import Book
@@ -34,7 +35,7 @@ class Loan(Base):
 
     id : Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     # Use UUID type for borrower_id to match users.id (UUID)
-    borrower_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"))
+    borrower_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("users.id"))
     book_id : Mapped[int] = mapped_column(Integer, ForeignKey("books.id"))
     status : Mapped[str] = mapped_column(String(20), nullable=False)
     rejection_reason : Mapped[str | None] = mapped_column(String(200), nullable=True)

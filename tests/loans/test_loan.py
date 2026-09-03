@@ -34,10 +34,21 @@ def admin_client(test_db_context):
         yield c
 
 @pytest.fixture
+def client(test_db_context):
+    """
+    Creates a FRESH, independent TestClient with NO authentication.
+    Never logs in, so no auth cookie is ever set — used to test
+    endpoints that require a token.
+    """
+    with TestClient(app) as c:
+        yield c
+
+@pytest.fixture
 def user_client(test_db_context):
     """
     Creates a FRESH, independent TestClient logged in as USER.
     """
+
     with TestClient(app) as c:
         # Login
         resp = c.post(
@@ -150,13 +161,14 @@ async def test_loan_request_route_already_active(user_client, make_loan):
     assert response.status_code == 409
 
 @pytest.mark.asyncio
-async def test_loan_return_route(client, user_client, make_loan):
+async def test_loan_return_route(user_client, make_loan):
     
     active_loan = await make_loan(status="active")
 
     response = user_client.put(
         f"/api/v1/loans/{active_loan.id}/return", 
     )
+
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "returned"
@@ -394,6 +406,7 @@ async def test_loan_list_admin_filter_by_id_invalid( admin_client, make_loan):
     response = admin_client.get(
         "/api/v1/loans/admin?id=0",
     )
+    
     data = response.json()
     assert data["total"] == 0
     assert data["data"] == []
