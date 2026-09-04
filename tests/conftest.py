@@ -11,6 +11,7 @@ from src.models import Base, User
 from datetime import datetime, timedelta
 
 import os
+import uuid
 os.environ["TESTING"] = "true"
 
 try:
@@ -22,6 +23,12 @@ try:
     from src.loans.models import Loan
 except ImportError:
     Loan = None
+
+try:
+    from src.chat.models import Chat, ChatMessage
+except ImportError:
+    Chat = None
+    ChatMessage = None
 
 # 1. Create a test engine with async
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -61,7 +68,7 @@ async def db_session():
             pass
 
         # Now clean up all tables in FK-safe order
-        for table in [Loan, Book, User]:
+        for table in [ChatMessage, Chat, Loan, Book, User]:
             try:
                 await session.execute(delete(table))
                 await session.commit()
@@ -149,6 +156,68 @@ async def make_loan(db_session, seed_test_data):
     for loan in created_loans:
         try:
             await db_session.delete(loan)
+        except Exception:
+            pass
+    await db_session.commit()
+
+@pytest.fixture
+async def make_chat(db_session, seed_test_data):
+    """Factory fixture — call it in your test with whatever params you need."""
+    created_chats = []
+
+    async def _make_chat(user_id: uuid.UUID, name: str | None = None):
+        if Chat is None:
+            raise Exception("Chat model not found")
+        
+        chat_data = {
+            "id": uuid.uuid4(),
+            "user_id": user_id,
+            "name": name or "test chat",
+            "content": None,
+        }
+        chat = Chat(**chat_data)
+        db_session.add(chat)
+        await db_session.commit()
+        await db_session.refresh(chat)
+        created_chats.append(chat)
+        return chat
+
+    yield _make_chat
+
+    for chat in created_chats:
+        try:
+            await db_session.delete(chat)
+        except Exception:
+            pass
+    await db_session.commit()
+
+@pytest.fixture
+async def make_message(db_session, seed_test_data):
+    """Factory fixture — call it in your test with whatever params you need."""
+    created_messages = []
+
+    async def _make_message(chat_id: uuid.UUID, user_id: uuid.UUID, content: str = "test message", reply: str = ""):
+        if ChatMessage is None:
+            raise Exception("ChatMessage model not found")
+
+        message = ChatMessage(
+            id=uuid.uuid4(),
+            chat_id=chat_id,
+            user_id=user_id,
+            content=content,
+            reply=reply,
+        )
+        db_session.add(message)
+        await db_session.commit()
+        await db_session.refresh(message)
+        created_messages.append(message)
+        return message
+
+    yield _make_message
+
+    for message in created_messages:
+        try:
+            await db_session.delete(message)
         except Exception:
             pass
     await db_session.commit()

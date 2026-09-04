@@ -181,17 +181,22 @@ async def message(request: Request,
     chatid = uuid.UUID(chat_id)
 
     if not await chat_service.get_by_id(chatid):
-        summary_response = requests.post(
-            f"{RAG_SERVICE_URL}/summarize",
-            headers=RAG_SERVICE_HEADERS,
-            json={"question": message_content},
-        )
+        try:
+            summary_response = requests.post(
+                f"{RAG_SERVICE_URL}/summarize",
+                headers=RAG_SERVICE_HEADERS,
+                json={"question": message_content},
+            )
+        except requests.RequestException:
+            # RAG being unreachable shouldn't block chat creation — fall
+            # through to the message-derived fallback title below.
+            summary_response = None
 
         # Robustly pick a title from the RAG response. Try several common
         # keys, and fall back to a short snippet of the user's message so
         # chats aren't named the generic "New Chat".
         title = None
-        if summary_response.status_code == 200:
+        if summary_response is not None and summary_response.status_code == 200:
             try:
                 resp_json = summary_response.json()
             except Exception:
@@ -274,8 +279,6 @@ async def message(request: Request,
     except Exception:
         # If DB write fails, continue — do not block answering.
         user_msg = None
-
-    print(f"Asking external service for {message_content} from {selected_book_id}")
 
     ask_payload = {"question": message_content}
     if selected_book_id not in (None, ""):
