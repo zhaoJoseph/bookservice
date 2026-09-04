@@ -36,7 +36,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     updatedAt: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # --- Fastapi-Users Fields ---
-    genres: Mapped[list[str]] = mapped_column(String(50), nullable=True)
+    genres: Mapped[list[str]] = mapped_column(String(150), nullable=True)
 
     # Relationship to chat messages (back_populates in ChatMessage.user)
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")

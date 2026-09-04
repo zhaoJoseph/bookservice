@@ -29,7 +29,7 @@ class UserCreate(fu_schemas.BaseUserCreate):
     token : str | None = None
     status: Status | None = None
     model_config = ConfigDict(populate_by_name=True)
-    genres: str = Field(..., min_length=3, max_length=50)
+    genres: str = Field(..., min_length=3, max_length=150)
 
 class UserUpdate(fu_schemas.BaseUserUpdate):
     name: Optional[str] = Field(default=None, min_length=3, max_length=20)
