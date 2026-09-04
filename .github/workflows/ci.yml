@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SES_SOURCE_EMAIL: test@example.com
+      S3_BUCKET: test-bucket
+      TESTING: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Run test suite
+        run: pytest
+
+  launch-check:
+    runs-on: ubuntu-latest
+    needs: test
+    env:
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SES_SOURCE_EMAIL: test@example.com
+      S3_BUCKET: test-bucket
+      APP_ENV: prod
+      DATABASE_URL: "sqlite+aiosqlite:///./ci_boot_check.db"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Boot the app and check /health
+        run: |
+          python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 &
+          SERVER_PID=$!
+
+          for i in $(seq 1 15); do
+            if curl -sf http://127.0.0.1:8000/health > /dev/null; then
+              echo "App booted successfully."
+              kill "$SERVER_PID"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "App failed to boot within 15 seconds."
+          kill "$SERVER_PID" 2>/dev/null || true
+          exit 1
