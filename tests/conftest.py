@@ -1,3 +1,15 @@
+import os
+
+# Tests must never touch real AWS. These have to be set before src.main (and
+# therefore src.aws.config.aws_settings) is imported anywhere in the suite,
+# since that singleton reads them once at import time. Mirrors the dummy
+# values CI sets via job env in .github/workflows/ci.yml.
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "test")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "test")
+os.environ.setdefault("SES_SOURCE_EMAIL", "test@example.com")
+os.environ.setdefault("S3_BUCKET", "test-bucket")
+os.environ.setdefault("TESTING", "true")
+
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import delete, select
@@ -10,9 +22,7 @@ from src.models import Base, User
 
 from datetime import datetime, timedelta
 
-import os
 import uuid
-os.environ["TESTING"] = "true"
 
 try:
     from src.books.models import Book

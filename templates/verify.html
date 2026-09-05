@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Verify Email</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body>
+        <div class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-md-6 text-center">
+                    <div
+                        id="verify-response"
+                        hx-get="/api/v1/auth/verify?token={{ token }}"
+                        hx-trigger="load"
+                        hx-swap="none"
+                    >
+                        <div class="alert alert-info">Verifying your email...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
+        <script>
+            document.body.addEventListener('htmx:beforeSwap', function (event) {
+                const responseDiv = document.getElementById('verify-response');
+                if (event.detail.xhr.status >= 400) {
+                    let errorMessage = "This verification link is invalid or has expired.";
+                    try {
+                        const errorData = JSON.parse(event.detail.xhr.responseText);
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {}
+                    responseDiv.innerHTML = `<div class="alert alert-danger">${errorMessage}</div>`;
+                    return;
+                }
+
+                responseDiv.innerHTML = '<div class="alert alert-success">Your email has been verified! You can now <a href="/login">log in</a>.</div>';
+            });
+        </script>
+    </body>
+</html>

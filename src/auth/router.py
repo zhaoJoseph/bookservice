@@ -1,18 +1,22 @@
+from datetime import datetime
 from typing import Annotated
 
+import jwt
 from fastapi import APIRouter, Depends, status, Body, Form, Request, Response
 from typing import Optional
 from fastapi.security import OAuth2PasswordRequestForm
 
 from fastapi_users.authentication import JWTStrategy
 from fastapi_users.exceptions import UserAlreadyExists, UserAlreadyVerified, UserNotExists, InvalidVerifyToken
+from fastapi_users.jwt import decode_jwt
 
 from .dependencies import current_active_user, get_jwt_strategy
 from ..config import settings
 from ..models import User, UserManager, get_user_manager
 from ..schemas import Status, Token, UserCreate, UserRead
-from .exceptions import EmailExists, IncorrectLogin, UserSuspended, InvalidToken, UserNotFound
-from .utils import generate_verification_token, genres_to_string
+from . import constants
+from .exceptions import EmailExists, IncorrectLogin, UserSuspended, InvalidToken, UserNotFound, VerificationTooSoon
+from .utils import generate_verification_token, genres_to_string, fingerprint_verification_token
 from .schemas import UserForm
 
 router: APIRouter = APIRouter()
@@ -75,8 +79,31 @@ async def login(
 async def read_current_user(user: Annotated[User, Depends(current_active_user)]):
     return user
 
+async def _is_stale_verification_token(token: str, user_manager: UserManager) -> bool:
+    """
+    True only if `token` decodes to a real, unverified user whose most
+    recently issued verification token doesn't match this one - i.e. a newer
+    one has since been requested. Verification tokens are otherwise valid
+    stateless JWTs until they expire, so without this check an older token
+    stays usable even after a newer one is sent. Any other problem (bad
+    token, unknown user, ...) is left for UserManager.verify() to report.
+    """
+    try:
+        data = decode_jwt(
+            token,
+            user_manager.verification_token_secret,
+            [user_manager.verification_token_audience],
+        )
+        user = await user_manager.get_by_email(data["email"])
+    except (jwt.PyJWTError, KeyError, UserNotExists):
+        return False
+    return user.token != fingerprint_verification_token(token)
+
 @router.get("/verify", response_model=UserRead)
 async def verify_user(token: str, user_manager: UserManager = Depends(get_user_manager)):
+    if await _is_stale_verification_token(token, user_manager):
+        raise InvalidToken()
+
     try:
         user = await user_manager.verify(token)
     except InvalidVerifyToken:
@@ -84,7 +111,7 @@ async def verify_user(token: str, user_manager: UserManager = Depends(get_user_m
     except UserNotExists:
         raise UserNotFound()
     except UserAlreadyVerified:
-        raise UserAlreadyVerified()
+        raise InvalidToken()
     return user
 
 @router.post("/request-verify-token", status_code=status.HTTP_202_ACCEPTED)
@@ -95,7 +122,16 @@ async def request_verify_token(
 ):
     try:
         user = await user_manager.get_by_email(email)
-        await user_manager.request_verify(user, request)
     except UserNotExists:
-        pass 
+        return {"detail": "Verification email sent if account exists"}
+
+    now = datetime.now()
+    if user.last_verification_sent_at is not None:
+        elapsed = (now - user.last_verification_sent_at).total_seconds()
+        if elapsed < constants.VERIFY_RESEND_COOLDOWN_SECONDS:
+            raise VerificationTooSoon()
+
+    await user_manager.request_verify(user, request)
+    await user_manager.user_db.update(user, {"last_verification_sent_at": now})
+
     return {"detail": "Verification email sent if account exists"}

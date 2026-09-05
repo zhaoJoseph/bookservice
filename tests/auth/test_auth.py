@@ -6,6 +6,7 @@ from src.models import User
 from fastapi_users.password import PasswordHelper
 from src.models import get_user_manager, User, UserManager, get_user_db
 from src.database import get_db
+from src.auth.utils import fingerprint_verification_token
 from sqlalchemy import select
 
 from typing import Optional
@@ -26,6 +27,9 @@ async def user_manager(db_session):
 
         async def on_after_request_verify(self, user: User, token: str, request: Optional[Request] = None):
             self.captured_token = token
+            # The real hook also stamps this fingerprint (used by /verify to
+            # reject stale tokens); skip only the actual SES call here.
+            await self.user_db.update(user, {"token": fingerprint_verification_token(token)})
 
     manager = TestUserManager(user_db, password_helper)
     yield manager

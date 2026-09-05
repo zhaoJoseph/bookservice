@@ -199,6 +199,11 @@ def register(request: Request):
     context = {"request" : request}
     return templates.TemplateResponse(request, "register.html", context)
 
+@app.get("/verify-email", response_class=HTMLResponse)
+def verify_email_page(request: Request, token: str = ""):
+    context = {"request": request, "token": token}
+    return templates.TemplateResponse(request, "verify.html", context)
+
 @app.get("/catalog", response_class=HTMLResponse)
 def catalog(request: Request):
 

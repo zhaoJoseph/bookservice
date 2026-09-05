@@ -29,6 +29,36 @@ jobs:
       - name: Run test suite
         run: pytest
 
+  e2e-browser-tests:
+    runs-on: ubuntu-latest
+    needs: test
+    env:
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SES_SOURCE_EMAIL: test@example.com
+      S3_BUCKET: test-bucket
+      TESTING: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Install Playwright browser
+        run: playwright install --with-deps chromium
+
+      - name: Run browser e2e tests
+        # Excluded from the main `pytest` run (see norecursedirs in
+        # pytest.ini) because Playwright's browser session and this
+        # project's asyncio_mode=auto don't share a process cleanly - run
+        # explicitly, as its own job/process.
+        run: pytest tests/e2e/browser_tests/
+
   launch-check:
     runs-on: ubuntu-latest
     needs: test

@@ -21,10 +21,10 @@
 
                         <div class="mb-3">
                             <label for="name" class="form-label">Name:</label>
-                            <input type="text" id="name" name="name" pattern="^[A-Za-z0-9]+$" 
-                            required minlength="3" class="form-control" 
-                            title="Alphanumeric only" 
-                            placeholder="john@example.com">
+                            <input type="text" id="name" name="name" pattern="^[a-zA-Z\s]+$"
+                            required minlength="3" class="form-control"
+                            title="Letters and spaces only"
+                            placeholder="John Doe">
                         </div>
 
                         <div class="mb-3">
@@ -62,16 +62,16 @@
                                 }
                             ">
                                 
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="1" id="g1"><label class="form-check-label" for="g1">Action</label></div>
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="2" id="g2"><label class="form-check-label" for="g2">Adventure</label></div>
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="3" id="g3"><label class="form-check-label" for="g3">Comedy</label></div>
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="4" id="g4"><label class="form-check-label" for="g4">Drama</label></div>
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="5" id="g5"><label class="form-check-label" for="g5">Fantasy</label></div>
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="6" id="g6"><label class="form-check-label" for="g6">Horror</label></div>
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="7" id="g7"><label class="form-check-label" for="g7">Romance</label></div>
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="8" id="g8"><label class="form-check-label" for="g8">Sci-Fi</label></div>
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="9" id="g9"><label class="form-check-label" for="g9">Thriller</label></div>
-                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" value="10" id="g10"><label class="form-check-label" for="g10">Western</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="1" id="g1"><label class="form-check-label" for="g1">Action</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="2" id="g2"><label class="form-check-label" for="g2">Adventure</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="3" id="g3"><label class="form-check-label" for="g3">Comedy</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="4" id="g4"><label class="form-check-label" for="g4">Drama</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="5" id="g5"><label class="form-check-label" for="g5">Fantasy</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="6" id="g6"><label class="form-check-label" for="g6">Horror</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="7" id="g7"><label class="form-check-label" for="g7">Romance</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="8" id="g8"><label class="form-check-label" for="g8">Sci-Fi</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="9" id="g9"><label class="form-check-label" for="g9">Thriller</label></div>
+                                <div class="form-check"><input class="form-check-input genre-check" type="checkbox" name="genres" value="10" id="g10"><label class="form-check-label" for="g10">Western</label></div>
                                 
                                 <div id="genre-error" class="text-danger mt-2" style="display:none;"></div>
                             </div>
@@ -155,8 +155,24 @@
 
                 event.detail.shouldSwap = false;
                 const responseDiv = document.getElementById('login-response');
-                responseDiv.innerHTML = '<div class="alert alert-success">Registration successful! Check your email for a verification link.</div>';
+                const email = document.getElementById('email').value;
                 document.querySelector("form").reset();
+
+                responseDiv.innerHTML = '<div class="alert alert-success">Registration successful! Sending a verification email...</div>';
+
+                fetch('/api/v1/auth/request-verify-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ email: email }),
+                }).then(function (resp) {
+                    if (resp.ok) {
+                        responseDiv.innerHTML = '<div class="alert alert-success">Registration successful! Check your email for a verification link.</div>';
+                    } else {
+                        responseDiv.innerHTML = '<div class="alert alert-warning">Registration successful, but we could not send the verification email. Please try again later.</div>';
+                    }
+                }).catch(function () {
+                    responseDiv.innerHTML = '<div class="alert alert-warning">Registration successful, but we could not send the verification email. Please try again later.</div>';
+                });
             });
         </script>
     </body>

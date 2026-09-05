@@ -1,5 +1,6 @@
 from .constants import EMAIL_EXISTS_MESSAGE, INCORECT_LOGIN_MESSAGE,  \
-            USER_SUSPENDED_MESSAGE, INVALID_TOKEN_MESSAGE, USER_NOT_FOUND_MESSAGE
+            USER_SUSPENDED_MESSAGE, INVALID_TOKEN_MESSAGE, USER_NOT_FOUND_MESSAGE, \
+            VERIFICATION_TOO_SOON_MESSAGE
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException
 from fastapi import FastAPI
@@ -23,6 +24,10 @@ class InvalidToken(HTTPException):
 class UserNotFound(HTTPException):
     def __init__(self, detail: str = USER_NOT_FOUND_MESSAGE):
         super().__init__(status_code=404, detail=detail)
+
+class VerificationTooSoon(HTTPException):
+    def __init__(self, detail: str = VERIFICATION_TOO_SOON_MESSAGE):
+        super().__init__(status_code=429, detail=detail)
 
 def register_exception_handlers(app: FastAPI):
     # Register the handler
@@ -57,6 +62,13 @@ def register_exception_handlers(app: FastAPI):
     @app.exception_handler(UserNotFound)
     async def user_not_found_handler(request, exc: UserNotFound):
         return JSONResponse(
-            status_code=exc.status_code, 
-            content={"detail": exc.detail} 
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+
+    @app.exception_handler(VerificationTooSoon)
+    async def verification_too_soon_handler(request, exc: VerificationTooSoon):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
         )
